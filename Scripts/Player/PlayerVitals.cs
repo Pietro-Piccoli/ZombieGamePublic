@@ -143,6 +143,8 @@ public class PlayerVitals : MonoBehaviour
 
     private void OnHurt(Vector3 dir)
     {
+        // levar dano tem que ser sentido, nao so visto na barra
+        ImpactoDeCamera.Tremer(0.30f);
         EstatisticasRun.RegistrarDanoRecebido(1);
         lastHurtTime = Time.time;
         regenBuffer = 0f;

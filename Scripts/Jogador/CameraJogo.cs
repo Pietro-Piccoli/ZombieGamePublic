@@ -36,6 +36,7 @@ public class CameraJogo : MonoBehaviour
     [SerializeField] private float fovMira = 42f;
     [Range(0.1f, 1f)]
     [SerializeField] private float sensNaMira = 0.55f;
+    [SerializeField] private bool inverterY = false;
     [SerializeField] private float velBlendMira = 12f;
 
     [Header("Colisao (Ground e Obstacle; nunca Player/Enemy)")]
@@ -117,7 +118,7 @@ public class CameraJogo : MonoBehaviour
 
         float sens = sensibilidade * Mathf.Lerp(1f, sensNaMira, blendMira);
         yaw += InputReader.MouseX * sens;
-        pitch = Mathf.Clamp(pitch - InputReader.MouseY * sens, pitchMin, pitchMax);
+        pitch = Mathf.Clamp(pitch - InputReader.MouseY * sens * (inverterY ? -1f : 1f), pitchMin, pitchMax);
 
         // ---------- RECUO: o tranco volta sozinho ----------
         // A parte que NAO volta ja foi somada no pitch/yaw de verdade la em
@@ -200,6 +201,18 @@ public class CameraJogo : MonoBehaviour
         recuoPitch -= grausCima * recuperacao;
         recuoYaw += grausLado * recuperacao;
     }
+
+    /// <summary>Chamado pelo menu de opcoes. Sensibilidade e mira sao do jogador, nao minhas.</summary>
+    public void AplicarOpcoes(float sens, float sensMira, bool inverterY, float fovQuadrilNovo)
+    {
+        sensibilidade = sens;
+        sensNaMira = sensMira;
+        this.inverterY = inverterY;
+        float delta = fovQuadrilNovo - fovQuadril;
+        fovQuadril = fovQuadrilNovo;
+        fovMira = Mathf.Clamp(fovMira + delta, 20f, 100f);   // a mira acompanha o campo de visao
+    }
+
 
     public void SetTarget(Transform t)
     {

@@ -357,7 +357,22 @@ public class WeaponController : MonoBehaviour
                 multParte > 1f ? DanoPopup.Tipo.Critico : DanoPopup.Tipo.Normal, health.transform);
             EstatisticasRun.RegistrarDano(dmg, multParte > 1f ? DanoPopup.Tipo.Critico : DanoPopup.Tipo.Normal);
             EstatisticasRun.RegistrarAcerto();
-            if (health.IsDead) EstatisticasRun.RegistrarAbate(multParte > 1f);
+            // SENSACAO DE IMPACTO. Valores calibrados na faixa que Dead Cells e
+            // Enter the Gungeon usam: o tiro que so acerta quase nao treme, o
+            // abate treme e congela, e a cabeca e o dobro disso.
+            bool cabeca = multParte > 1f;
+            if (health.IsDead)
+            {
+                EstatisticasRun.RegistrarAbate(cabeca);
+                Crosshair.MarcarAbate(cabeca);
+                ImpactoDeCamera.Tremer(cabeca ? 0.26f : 0.16f);
+                ImpactoDeCamera.Congelar(cabeca ? 0.075f : 0.045f);
+            }
+            else
+            {
+                Crosshair.MarcarAcerto(cabeca);
+                ImpactoDeCamera.Tremer(cabeca ? 0.07f : 0.035f);
+            }
 
             // TIRO DE MISERICORDIA: abaixo do limiar, morre agora
             if (efeitos != null && !health.IsDead && efeitos.LimiarExecucao > 0f

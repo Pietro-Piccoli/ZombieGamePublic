@@ -92,6 +92,17 @@ public class Granada : MonoBehaviour
         }
         FlashDeLuz(ponto, ficha.cor, ficha.raio);
 
+        // Explosao sacode de verdade. O tremor cai com a distancia: estar a 20 m
+        // de uma granada nao pode sacudir igual a estar em cima dela.
+        var camImp = Camera.main;
+        if (camImp != null)
+        {
+            float dist = Vector3.Distance(camImp.transform.position, ponto);
+            float perto = Mathf.Clamp01(1f - dist / (raioFinal * 3.5f));
+            ImpactoDeCamera.Tremer(0.75f * perto * perto);
+            if (perto > 0.35f) ImpactoDeCamera.Congelar(0.06f);
+        }
+
         // ---- dano em area, com queda pela distancia ----
         var atingidos = new System.Collections.Generic.HashSet<Health>();
         foreach (var c in Physics.OverlapSphere(ponto, raioFinal, ~0, QueryTriggerInteraction.Ignore))

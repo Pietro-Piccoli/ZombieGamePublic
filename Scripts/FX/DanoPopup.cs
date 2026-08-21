@@ -22,6 +22,28 @@ using TMPro;
 [DefaultExecutionOrder(-50)]
 public class DanoPopup : MonoBehaviour
 {
+    /// <summary>Desligavel no menu de opcoes: numero na tela polui pra muita gente.</summary>
+    public static bool Ligado = true;
+
+    // int.ToString() ALOCA UMA STRING NOVA a cada chamada. Medido em jogo com 109
+    // zumbis pegando fogo: os numeros flutuantes sozinhos faziam 2,83 KB de lixo
+    // por quadro - 60% de todo o lixo que sobrava.
+    //
+    // Como dano e quase sempre um inteiro pequeno, uma tabela pronta de 0 a 999
+    // resolve sem alocar nada. Acima disso cai no ToString mesmo, que e raro.
+    private static string[] tabelaNumeros;
+
+    private static string Texto(int v)
+    {
+        if (v < 0 || v > 999) return v.ToString();
+        if (tabelaNumeros == null)
+        {
+            tabelaNumeros = new string[1000];
+            for (int i = 0; i < 1000; i++) tabelaNumeros[i] = i.ToString();
+        }
+        return tabelaNumeros[v];
+    }
+
     public enum Tipo { Normal, Critico, Explosao, Fogo, Acido, Cura, Eletrico }
 
     // ---------------- ajustes ----------------
@@ -89,6 +111,7 @@ public class DanoPopup : MonoBehaviour
     /// <summary>Mostra um numero de dano no mundo. Chame de qualquer lugar.</summary>
     public static void Mostrar(Vector3 mundo, int valor, Tipo tipo, Transform alvo)
     {
+        if (!Ligado) return;
         if (valor <= 0) return;
         if (instancia == null) instancia = FindAnyObjectByType<DanoPopup>();   // sobreviveu ao reload?
         if (instancia == null) Criar();
@@ -208,7 +231,7 @@ public class DanoPopup : MonoBehaviour
                     // manda o numero pro ceu, porque a posicao continua integrando
                     nums[idx].pos = mundo + new Vector3(Random.Range(-0.12f, 0.12f), 0f, Random.Range(-0.12f, 0.12f));
                     nums[idx].vel = new Vector3(0f, subidaInicial * 0.7f, 0f);
-                    nums[idx].txt.text = nums[idx].valor.ToString();
+                    nums[idx].txt.text = Texto(nums[idx].valor);
                     return;
                 }
             }
@@ -227,7 +250,7 @@ public class DanoPopup : MonoBehaviour
         n.pos = mundo + new Vector3(Random.Range(-0.18f, 0.18f), Random.Range(0f, 0.2f), Random.Range(-0.18f, 0.18f));
         n.vel = new Vector3(Random.Range(-espalhamentoLateral, espalhamentoLateral), subidaInicial, Random.Range(-espalhamentoLateral, espalhamentoLateral));
 
-        n.txt.text = valor.ToString();
+        n.txt.text = Texto(valor);
         n.txt.color = n.cor;
         n.tr.position = n.pos;
         n.tr.gameObject.SetActive(true);

@@ -55,6 +55,12 @@ public class EfeitosJogador : MonoBehaviour
     private static int explosoesEmVoo;
     private bool explodindo;
 
+    // lista reaproveitada em todas as buscas por area. Alocar uma lista nova
+    // por tique era metade do lixo que fazia o coletor rodar no meio da partida.
+    private readonly System.Collections.Generic.List<Health> alvosAura = new System.Collections.Generic.List<Health>(64);
+    private readonly System.Collections.Generic.List<Health> alvosEspinhos = new System.Collections.Generic.List<Health>(64);
+    private readonly System.Collections.Generic.List<Health> alvosExplosao = new System.Collections.Generic.List<Health>(64);
+
     private void Awake()
     {
         inv = GetComponent<UpgradeInventory>();
@@ -123,14 +129,8 @@ public class EfeitosJogador : MonoBehaviour
         float pct = V(UpgradeKind.CorrenteEletrica);
         if (pct <= 0f || vitima == null) return;
 
-        Health alvo = null; float melhor = 8f * 8f;
-        foreach (var h in Object.FindObjectsByType<Health>(FindObjectsSortMode.None))
-        {
-            if (h == vitima || h == vida || h.IsDead) continue;
-            if (h.GetComponent<ZombieAI>() == null) continue;
-            float d = (h.transform.position - ponto).sqrMagnitude;
-            if (d < melhor) { melhor = d; alvo = h; }
-        }
+        // o registro ja devolve o mais proximo sem varrer a cena nem alocar
+        Health alvo = RegistroInimigos.MaisProximo(ponto, 8f, vitima, vida);
         if (alvo == null) return;
 
         int dano = Mathf.Max(1, Mathf.RoundToInt(danoBase * pct / 100f));
@@ -189,10 +189,10 @@ public class EfeitosJogador : MonoBehaviour
         if (esp > 0f)
         {
             float raio = Mathf.Max(2.2f, S(UpgradeKind.Espinhos));
-            foreach (var h in Object.FindObjectsByType<Health>(FindObjectsSortMode.None))
+            RegistroInimigos.DentroDoRaio(transform.position, raio, alvosEspinhos, vida);
+            for (int i = 0; i < alvosEspinhos.Count; i++)
             {
-                if (h == vida || h.IsDead || h.GetComponent<ZombieAI>() == null) continue;
-                if ((h.transform.position - transform.position).sqrMagnitude > raio * raio) continue;
+                var h = alvosEspinhos[i];
                 int d = Mathf.Max(1, Mathf.RoundToInt(esp));
                 h.TakeDamage(d, (h.transform.position - transform.position).normalized);
                 DanoPopup.Mostrar(h.transform.position + Vector3.up * 1.4f, d, DanoPopup.Tipo.Normal, h.transform);
@@ -267,10 +267,11 @@ public class EfeitosJogador : MonoBehaviour
                     Granada.FlashDeLuz(ponto, new Color(1f, 0.55f, 0.2f), raio);
                 }
 
-                foreach (var h in Object.FindObjectsByType<Health>(FindObjectsSortMode.None))
+                RegistroInimigos.DentroDoRaio(ponto, raio, alvosExplosao, vida);
+                for (int i = 0; i < alvosExplosao.Count; i++)
                 {
-                    if (h == morto || h == vida || h.IsDead || h.GetComponent<ZombieAI>() == null) continue;
-                    if ((h.transform.position - ponto).sqrMagnitude > raio * raio) continue;
+                    var h = alvosExplosao[i];
+                    if (h == morto) continue;
                     int d = Mathf.Max(1, Mathf.RoundToInt(danoExp));
                     Vector3 dir = (h.transform.position - ponto).normalized;
                     h.TakeDamage(d, dir);
@@ -355,10 +356,10 @@ public class EfeitosJogador : MonoBehaviour
 
         float raio = Mathf.Max(2.5f, S(UpgradeKind.AuraDeFogo));
         int dano = Mathf.Max(1, Mathf.RoundToInt(dps * 0.5f));
-        foreach (var h in Object.FindObjectsByType<Health>(FindObjectsSortMode.None))
+        RegistroInimigos.DentroDoRaio(transform.position, raio, alvosAura, vida);
+        for (int i = 0; i < alvosAura.Count; i++)
         {
-            if (h == vida || h.IsDead || h.GetComponent<ZombieAI>() == null) continue;
-            if ((h.transform.position - transform.position).sqrMagnitude > raio * raio) continue;
+            var h = alvosAura[i];
             h.TakeDamage(dano, (h.transform.position - transform.position).normalized);
             DanoPopup.Mostrar(h.transform.position + Vector3.up * 1.6f, dano, DanoPopup.Tipo.Fogo, h.transform);
             EstatisticasRun.RegistrarDano(dano, DanoPopup.Tipo.Fogo);

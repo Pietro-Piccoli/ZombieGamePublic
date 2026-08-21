@@ -38,6 +38,15 @@ public class TelaFimDeJogo : MonoBehaviour
     {
         var e = EstatisticasRun.Atual;
 
+        // O recorde ANTERIOR precisa ser lido antes de Fechar(), senao a
+        // comparacao na tela vira 'seu recorde e voce mesmo agora'.
+        int recWave   = Recordes.MelhorWave;
+        int recAbates = Recordes.MaisAbates;
+        int recGolpe  = Recordes.MaiorGolpe;
+        int recDps    = Recordes.MaiorPicoDps;
+        long recDano  = Recordes.MaiorDano;
+        var bat = Recordes.Fechar(e, e.WaveMaxima);
+
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
@@ -56,7 +65,8 @@ public class TelaFimDeJogo : MonoBehaviour
         tit.characterSpacing = 12f;
 
         var sub = UIKit.Texto3(canvasGo.transform, "Sub",
-            "SOBREVIVEU  " + e.DuracaoFormatada + "   ·   WAVE " + e.WaveMaxima + "   ·   NÍVEL " + Mathf.Max(1, e.MaiorNivel),
+            "SOBREVIVEU  " + e.DuracaoFormatada + "   ·   WAVE " + e.WaveMaxima + "   ·   NÍVEL " + Mathf.Max(1, e.MaiorNivel)
+            + (recWave > 0 ? (bat.wave ? "   ·   <color=#FFD23A>NOVO RECORDE</color>" : "   ·   SEU RECORDE: WAVE " + recWave) : ""),
             20f, TextAlignmentOptions.Center, UIKit.TextoFraco, true);
         UIKit.Por(sub, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -116f), new Vector2(1400f, 26f));
         sub.characterSpacing = 8f;
@@ -64,14 +74,14 @@ public class TelaFimDeJogo : MonoBehaviour
         // ---------- cartoes ----------
         // rotulo | valor | sufixo | inteiro | cor | nota
         object[][] dados = new object[][] {
-            new object[]{ "ZUMBIS ABATIDOS",     (float)e.Abates,            "",  true,  UIKit.Destaque,                    e.MaisZumbisDeUmaVez + " de uma vez só" },
-            new object[]{ "DANO TOTAL",          (float)e.DanoTotal,         "",  true,  new Color(1.00f,0.47f,0.16f),      Mathf.RoundToInt(e.DpsMedio) + " por segundo, em média" },
-            new object[]{ "PICO DE DANO",        (float)e.PicoDps,           "/s", true, new Color(1.00f,0.30f,0.30f),      "seu melhor segundo" },
-            new object[]{ "MAIOR GOLPE",         (float)e.MaiorGolpe,        "",  true,  new Color(1.00f,0.84f,0.18f),      "num único tiro" },
-            new object[]{ "PRECISÃO",            e.Precisao * 100f,          "%",  false, new Color(0.34f,0.78f,1.00f),      e.TirosQueAcertaram + " de " + e.TirosDados + " tiros" },
-            new object[]{ "NA CABEÇA",           e.FracaoCabeca * 100f,      "%",  false, new Color(1.00f,0.84f,0.18f),      e.AbatesNaCabeca + " abates" },
-            new object[]{ "DINHEIRO",            (float)e.DinheiroGanho,     "",  true,  UIKit.Destaque,                    "foi tudo pro banco" },
-            new object[]{ "CARTAS PEGAS",        (float)e.CartasPegas,       "",  true,  new Color(0.75f,0.45f,1.00f),      "escolhidas no level up" }
+            new object[]{ "ZUMBIS ABATIDOS", (float)e.Abates, "", true, UIKit.Destaque, e.MaisZumbisDeUmaVez + " de uma vez só", bat.abates, recAbates },
+            new object[]{ "DANO TOTAL", (float)e.DanoTotal, "", true, new Color(1.00f,0.47f,0.16f), Mathf.RoundToInt(e.DpsMedio) + " por segundo, em média", bat.dano, (int)recDano },
+            new object[]{ "PICO DE DANO", (float)e.PicoDps, "/s", true, new Color(1.00f,0.30f,0.30f), "seu melhor segundo", bat.dps, recDps },
+            new object[]{ "MAIOR GOLPE", (float)e.MaiorGolpe, "", true, new Color(1.00f,0.84f,0.18f), "num único tiro", bat.golpe, recGolpe },
+            new object[]{ "PRECISÃO", e.Precisao * 100f, "%", false, new Color(0.34f,0.78f,1.00f), e.TirosQueAcertaram + " de " + e.TirosDados + " tiros", false, 0 },
+            new object[]{ "NA CABEÇA", e.FracaoCabeca * 100f, "%", false, new Color(1.00f,0.84f,0.18f), e.AbatesNaCabeca + " abates", false, 0 },
+            new object[]{ "DINHEIRO", (float)e.DinheiroGanho, "", true, UIKit.Destaque, "foi tudo pro banco", false, 0 },
+            new object[]{ "CARTAS PEGAS", (float)e.CartasPegas, "", true, new Color(0.75f,0.45f,1.00f), "escolhidas no level up", false, 0 }
         };
 
         const float LG = 300f, AL = 118f, PX = 320f, PY = 132f;
@@ -81,7 +91,8 @@ public class TelaFimDeJogo : MonoBehaviour
             int col = i % 4, lin = i / 4;
             var pos = new Vector2(x0 + col * PX, 128f - lin * PY);
             MontarCartao(canvasGo.transform, (string)dados[i][0], (float)dados[i][1], (string)dados[i][2],
-                         (bool)dados[i][3], (Color)dados[i][4], (string)dados[i][5], pos, LG, AL, 0.06f * i);
+                         (bool)dados[i][3], (Color)dados[i][4], (string)dados[i][5], pos, LG, AL, 0.06f * i,
+                         (bool)dados[i][6], (int)dados[i][7]);
         }
 
         // ---------- de onde veio o dano ----------
@@ -103,8 +114,13 @@ public class TelaFimDeJogo : MonoBehaviour
     }
 
     private void MontarCartao(Transform pai, string rotulo, float valor, string sufixo, bool inteiro,
-                              Color cor, string nota, Vector2 pos, float lg, float al, float atraso)
+                              Color cor, string nota, Vector2 pos, float lg, float al, float atraso,
+                              bool recorde, int recordeAnterior)
     {
+        // Nota vira comparacao quando existe recorde anterior. Numero sozinho nao
+        // diz nada; numero contra o teu melhor diz se voce esta melhorando.
+        if (recorde && recordeAnterior > 0) nota = "antes era " + recordeAnterior;
+        else if (!recorde && recordeAnterior > 0) nota = "seu recorde: " + recordeAnterior;
         var caixa = UIKit.PainelBordado(pai, "C_" + rotulo, UIKit.PainelForte, 12);
         var rt = UIKit.Por(caixa, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), pos + new Vector2(0f, -18f), new Vector2(lg, al));
         var d = caixa.transform.GetChild(0);
@@ -121,6 +137,16 @@ public class TelaFimDeJogo : MonoBehaviour
 
         var nt = UIKit.Texto3(d, "N", nota, 12f, TextAlignmentOptions.Left, new Color(0.52f, 0.56f, 0.63f), false);
         UIKit.Por(nt, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(22f, 10f), new Vector2(lg - 40f, 18f));
+
+        if (recorde)
+        {
+            // selo curto e no canto: tem que ser notado sem roubar o numero
+            var selo = UIKit.Caixa(d, "Selo", new Color(1f, 0.82f, 0.23f), 4);
+            UIKit.Por(selo, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-10f, -10f), new Vector2(74f, 18f));
+            var st = UIKit.Texto3(selo.transform, "T", "RECORDE", 10f, TextAlignmentOptions.Center, new Color(0.08f, 0.06f, 0.02f), true);
+            UIKit.Esticar(st);
+            st.characterSpacing = 3f;
+        }
 
         cartoes.Add(new Cartao {
             valor = val, alvo = valor, sufixo = sufixo, inteiro = inteiro,

@@ -3,7 +3,7 @@
 Shooter de horda em terceira pessoa, feito em **Unity 6 / URP**, ambientado numa favela carioca à noite.
 Você segura ondas de zumbis que ficam progressivamente mais difíceis, junta dinheiro e XP, escolhe cartas de upgrade entre as ondas e melhora a arma numa armaria entre partidas.
 
-Este repositório contém **o código-fonte do jogo** — os 79 scripts que eu escrevi. O projeto Unity completo é privado porque inclui pacotes de arte comprados, que não podem ser redistribuídos.
+Este repositório contém **o código-fonte do jogo** — os 85 scripts que eu escrevi. O projeto Unity completo é privado porque inclui pacotes de arte comprados, que não podem ser redistribuídos.
 
 ![Enfrentando a horda](img/gran_0314.png)
 
@@ -14,7 +14,7 @@ Este repositório contém **o código-fonte do jogo** — os 79 scripts que eu e
 Sendo direto, porque é a primeira pergunta que se faz num projeto assim:
 
 **Meu — tudo neste repositório:**
-todos os sistemas de jogo, a arquitetura, a UI, a progressão, a IA, a física de morte, o gerador procedural da cidade. 79 scripts, 15.885 linhas.
+todos os sistemas de jogo, a arquitetura, a UI, a progressão, a IA, a física de morte, o gerador procedural da cidade. 85 scripts, 17.149 linhas.
 
 **Não é meu:**
 modelos, animações e efeitos visuais são pacotes comprados na Asset Store e no Mixamo — Voyager (animações), Hovl Studio (VFX), PolyOne, TreePack, e o modelo da AK-47. Nada de arte neste projeto foi feito por mim.
@@ -110,9 +110,8 @@ Scripts/
 Em desenvolvimento. Funciona de ponta a ponta — menu, partida, progressão, morte, meta-progressão entre partidas — mas ainda faltam coisas que eu sei que faltam:
 
 - **áudio** (o jogo ainda não tem nenhum som)
-- menu de opções (sensibilidade, volume, qualidade)
 - mais armas — hoje só existe a AK-47
-- desenho de arena de verdade, em vez de cenário procedural
+- um objetivo de fim de partida (chefe, extração, algo que encerre a run)
 
 O projeto começou em junho de 2026 e passou a ser versionado em agosto, então o histórico deste repositório não cobre o início.
 
@@ -122,8 +121,8 @@ O projeto começou em junho de 2026 e passou a ser versionado em agosto, então 
 
 | | |
 |---|---|
-| Scripts | 79 |
-| Linhas | 15.885 |
+| Scripts | 85 |
+| Linhas | 17.149 |
 | Cartas de upgrade | 42 |
 | Tipos de zumbi | 5 |
 | Anexos de arma | 16 |

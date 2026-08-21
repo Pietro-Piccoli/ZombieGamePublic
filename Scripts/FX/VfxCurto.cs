@@ -13,7 +13,6 @@ public class VfxCurto : MonoBehaviour
     public float rajada = 6f;
 
     private float t;
-    private bool cortado;
 
     private void Start()
     {
@@ -30,11 +29,13 @@ public class VfxCurto : MonoBehaviour
 
     private void Update()
     {
-        if (cortado) return;
         t += Time.deltaTime;
         if (t < tempoEmitindo) return;
-        cortado = true;
         foreach (var ps in GetComponentsInChildren<ParticleSystem>(true))
             ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+        // desliga o componente: um VfxCurto cortado continuava na lista de Update
+        // da Unity pra sempre so pra dar 'return'. Com dezenas de VFX por partida
+        // isso e trabalho puro de contabilidade.
+        enabled = false;
     }
 }

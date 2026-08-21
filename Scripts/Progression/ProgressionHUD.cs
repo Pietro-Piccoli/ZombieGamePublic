@@ -13,6 +13,7 @@ public class ProgressionHUD : MonoBehaviour
     private TextMeshProUGUI txtDinheiro, txtNivel;
     private Image barraXp;
     private int ultimoDinheiro = -1;
+    private int ultimoNivel = -1;
     private float pulso;
 
     private void Awake() { prog = GetComponent<PlayerProgression>(); }
@@ -59,7 +60,9 @@ public class ProgressionHUD : MonoBehaviour
             txtDinheiro.transform.localScale = new Vector3(s, s, 1f);
         }
 
-        txtNivel.text = "LV " + prog.Nivel;
+        // o nivel muda algumas vezes por partida; escrever todo quadro reconstruia
+        // a malha do texto 200 vezes por segundo pra mostrar o mesmo "LV 3"
+        if (prog.Nivel != ultimoNivel) { ultimoNivel = prog.Nivel; txtNivel.text = "LV " + prog.Nivel; }
         barraXp.fillAmount = Mathf.Lerp(barraXp.fillAmount, prog.XpPercent, 1f - Mathf.Exp(-12f * Time.unscaledDeltaTime));
     }
 }

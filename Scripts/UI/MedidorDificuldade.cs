@@ -80,24 +80,33 @@ public class MedidorDificuldade : MonoBehaviour
         }
     }
 
+    // Mesmo motivo do WaveHUD: escrever .text reconstroi a malha do texto. O
+    // relogio muda 1x por segundo e a faixa quase nunca - nao ha porque reescrever
+    // os tres campos 200 vezes por segundo. So a barra de entalhes segue continua,
+    // e fillAmount de Image nao reconstroi nada.
+    private string ultTempo, ultFaixa;
+    private int ultNivel = -1;
+
     private void Update()
     {
         if (dif == null) { dif = Dificuldade.Instancia; if (dif == null) return; }
         if (txtTempo == null) return;
 
-        txtTempo.text = dif.TempoFormatado;
-        txtNivel.text = "Nv " + dif.NivelInteiro;
+        string tempo = dif.TempoFormatado;
+        if (tempo != ultTempo) { txtTempo.text = tempo; ultTempo = tempo; }
+
+        int nv = dif.NivelInteiro;
+        if (nv != ultNivel) { txtNivel.text = "Nv " + nv; ultNivel = nv; }
 
         Color cor = dif.CorFaixa;
-        txtFaixa.text = dif.NomeFaixa;
-        txtFaixa.color = cor;
+        string faixa = dif.NomeFaixa;
+        if (faixa != ultFaixa) { txtFaixa.text = faixa; ultFaixa = faixa; }
+        txtFaixa.color = cor;   // trocar cor NAO reconstroi malha, so o vertex color
 
-        // reparte o progresso da faixa entre os entalhes
         float prog = dif.ProgressoFaixa * Entalhes;
         for (int i = 0; i < Entalhes; i++)
         {
-            float f = Mathf.Clamp01(prog - i);
-            pedacos[i].fillAmount = f;
+            pedacos[i].fillAmount = Mathf.Clamp01(prog - i);
             pedacos[i].color = cor;
         }
     }

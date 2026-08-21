@@ -12,6 +12,26 @@ public class ZonaDeFogo : MonoBehaviour
     private float proximaAplicacao;
     private float multFogo = 1f;
 
+    // Consulta o registro de inimigos em vez da fisica.
+    //
+    // O OverlapSphere de antes usava mascara ~0 e devolvia 552 colisores num raio
+    // de 5,5 m - casa, chao, arvore, poste - e pagava GetComponent<Hitbox> em cada
+    // um pra descobrir que era parede. Duas vezes por segundo.
+    //
+    // Trocar por OverlapSphereNonAlloc com mascara de Hitbox ficou 5,8x mais
+    // rapido, MAS cada zumbi tem ~13 hitboxes: um buffer de 64 satura com 5
+    // zumbis e o NonAlloc TRUNCA calado - zumbi dentro do fogo deixaria de queimar.
+    //
+    // O registro resolve os dois: devolve UM item por zumbi (nao 13 colisores),
+    // nao aloca, e nunca trunca.
+    private readonly System.Collections.Generic.List<Health> dentro = new System.Collections.Generic.List<Health>(64);
+
+    // Buffer reaproveitado + mascara so de Hitbox. O OverlapSphere de antes
+    // usava mascara ~0, ou seja perguntava por TUDO: casa, chao, arvore, poste.
+    // Numa favela com 214 renderers isso volta dezenas de colisores por chamada,
+    // aloca um vetor novo, e ainda paga GetComponent em cada um pra descobrir
+    // que era uma parede. Agora a fisica ja devolve so o que interessa.
+
     public static ZonaDeFogo Criar(GranadaData f, Vector3 ponto) { return Criar(f, ponto, 1f); }
 
     public static ZonaDeFogo Criar(GranadaData f, Vector3 ponto, float multFogo)
@@ -57,12 +77,8 @@ public class ZonaDeFogo : MonoBehaviour
         if (Time.time < proximaAplicacao) return;
         proximaAplicacao = Time.time + 0.5f;
 
-        foreach (var c in Physics.OverlapSphere(transform.position, ficha.raioFogo, ~0, QueryTriggerInteraction.Ignore))
-        {
-            if (c.GetComponent<Hitbox>() == null) continue;
-            Health h = c.GetComponentInParent<Health>();
-            if (h == null || h.IsDead) continue;
-            BurnStatus.Aplicar(h, ficha.dpsFogo * multFogo, 1.2f, false);
-        }
+        RegistroInimigos.DentroDoRaio(transform.position, ficha.raioFogo, dentro, null);
+        for (int n = 0; n < dentro.Count; n++)
+            BurnStatus.Aplicar(dentro[n], ficha.dpsFogo * multFogo, 1.2f, false);
     }
 }

@@ -45,6 +45,15 @@ public class WaveHUD : MonoBehaviour
         UIKit.Contornar(txtIntervalo, 0.22f);
     }
 
+    // Cada atribuicao de .text no TextMeshPro forca RECONSTRUCAO DA MALHA do
+    // texto, mesmo quando a string e identica a de antes. Escrever os tres
+    // campos todo quadro era reconstruir tres malhas 200 vezes por segundo pra
+    // mostrar o mesmo 'WAVE 7'. Guardar o ultimo valor e so escrever quando muda
+    // e o conserto padrao de HUD em Unity.
+    private int ultWave = -1, ultKills = -1, ultQuota = -1, ultSegundos = -1;
+    private bool ultBreak;
+    private bool primeira = true;
+
     private void Update()
     {
         var wm = WaveManager.Instance;
@@ -52,19 +61,38 @@ public class WaveHUD : MonoBehaviour
 
         if (wm.InBreak)
         {
-            txtWave.text = wm.CurrentWave == 0 ? "PREPARE-SE" : "WAVE " + wm.CurrentWave;
-            txtContador.text = wm.CurrentWave == 0 ? "" : "COMPLETA";
-            txtIntervalo.text = "PRÓXIMA WAVE EM " + Mathf.CeilToInt(wm.BreakTimeLeft);
-            barra.fillAmount = 1f;
-            barra.color = UIKit.Destaque;
+            int seg = Mathf.CeilToInt(wm.BreakTimeLeft);
+            if (primeira || !ultBreak || wm.CurrentWave != ultWave)
+            {
+                txtWave.text = wm.CurrentWave == 0 ? "PREPARE-SE" : "WAVE " + wm.CurrentWave;
+                txtContador.text = wm.CurrentWave == 0 ? "" : "COMPLETA";
+                barra.fillAmount = 1f;
+                barra.color = UIKit.Destaque;
+            }
+            if (primeira || seg != ultSegundos)
+            {
+                txtIntervalo.text = "PRÓXIMA WAVE EM " + seg;   // muda 1x por segundo, nao 200
+                ultSegundos = seg;
+            }
         }
         else
         {
-            txtWave.text = "WAVE " + wm.CurrentWave;
-            txtContador.text = wm.KillsThisWave + " / " + wm.KillQuota;
-            txtIntervalo.text = "";
-            barra.fillAmount = wm.WaveProgress;
-            barra.color = UIKit.Perigo;
+            if (primeira || ultBreak || wm.CurrentWave != ultWave)
+            {
+                txtWave.text = "WAVE " + wm.CurrentWave;
+                txtIntervalo.text = "";
+                barra.color = UIKit.Perigo;
+            }
+            if (primeira || wm.KillsThisWave != ultKills || wm.KillQuota != ultQuota)
+            {
+                txtContador.text = wm.KillsThisWave + " / " + wm.KillQuota;
+                ultKills = wm.KillsThisWave; ultQuota = wm.KillQuota;
+            }
+            barra.fillAmount = wm.WaveProgress;   // Image.fillAmount nao reconstroi malha
         }
+
+        ultWave = wm.CurrentWave;
+        ultBreak = wm.InBreak;
+        primeira = false;
     }
 }

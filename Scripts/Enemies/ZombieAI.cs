@@ -56,6 +56,9 @@ public class ZombieAI : MonoBehaviour
 
     public bool IsDead { get { return isDead; } }
 
+    /// <summary>Usado pelo RegistroInimigos pra nao precisar de GetComponent por tique.</summary>
+    public Health Vida { get { return health; } }
+
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
@@ -72,12 +75,14 @@ public class ZombieAI : MonoBehaviour
 
     private void OnEnable()
     {
+        RegistroInimigos.Entrar(this);
         health.OnDamaged += HandleDamaged;
         health.OnDeath += HandleDeath;
     }
 
     private void OnDisable()
     {
+        RegistroInimigos.Sair(this);
         health.OnDamaged -= HandleDamaged;
         health.OnDeath -= HandleDeath;
     }

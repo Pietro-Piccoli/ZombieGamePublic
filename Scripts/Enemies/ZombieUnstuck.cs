@@ -28,6 +28,15 @@ public class ZombieUnstuck : MonoBehaviour
     private int falhas;
     private Vector3 posAnterior;
 
+    // Um NavMeshPath por zumbi, criado uma vez. Antes nascia um a cada checagem:
+    // com 100 zumbis checando a cada 3 s, sao ~33 objetos jogados fora por segundo
+    // so pra serem coletados depois.
+    private NavMeshPath caminho;
+
+    // Um NavMeshPath por zumbi, criado uma vez. Antes nascia um a cada checagem:
+    // com 100 zumbis checando a cada 3 s, sao ~33 objetos jogados fora por
+    // segundo so pra serem coletados depois.
+
     private void Start()
     {
         agent = GetComponent<NavMeshAgent>();
@@ -39,6 +48,7 @@ public class ZombieUnstuck : MonoBehaviour
         director = FindAnyObjectByType<SpawnDirector>();
         proximaChecagem = Time.time + intervalo + Random.value * intervalo; // espalha as checagens
         posAnterior = transform.position;
+        caminho = new NavMeshPath();
     }
 
     private void Update()
@@ -53,7 +63,6 @@ public class ZombieUnstuck : MonoBehaviour
         bool ruim = false;
 
         // caminho quebrado?
-        NavMeshPath caminho = new NavMeshPath();
         NavMeshHit ph;
         if (NavMesh.SamplePosition(player.position, out ph, 3f, NavMesh.AllAreas))
         {

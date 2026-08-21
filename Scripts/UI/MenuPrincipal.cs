@@ -126,12 +126,12 @@ public class MenuPrincipal : MonoBehaviour
         AtualizarBanco();
 
         // ---- navegacao ----
-        string[] nomes = new string[] { "JOGAR", "ARMARIA", "CARTAS", "SAIR" };
+        string[] nomes = new string[] { "JOGAR", "ARMARIA", "CARTAS", "RECORDES", "OPÇÕES", "SAIR" };
         abas.Clear();
         for (int i = 0; i < nomes.Length; i++)
         {
             int k = i;
-            var b = Botao(canvasGo.transform, nomes[i], Vector2.zero, 320f, 60f, i == 3 ? UIKit.Perigo : UIKit.Texto);
+            var b = Botao(canvasGo.transform, nomes[i], Vector2.zero, 320f, 60f, i == 5 ? UIKit.Perigo : UIKit.Texto);
             var rt = (RectTransform)b.transform;
             rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0f, 1f);
@@ -170,7 +170,7 @@ public class MenuPrincipal : MonoBehaviour
     private void Aba(int i)
     {
         if (i == 0) { Jogar(); return; }
-        if (i == 3) { MenuPausa.Sair(); return; }
+        if (i == 5) { MenuPausa.Sair(); return; }   // SAIR agora e a ultima aba
 
         abaAtiva = i;
         for (int k = 0; k < abas.Count; k++)
@@ -181,7 +181,9 @@ public class MenuPrincipal : MonoBehaviour
 
         LimparConteudo();
         if (i == 1) MontarArmaria();
-        else MontarCartas();
+        else if (i == 2) MontarCartas();
+        else if (i == 3) MontarRecordes();
+        else if (i == 4) PainelOpcoes.Montar(conteudo, null);
     }
 
     private void Jogar()
@@ -507,6 +509,100 @@ public class MenuPrincipal : MonoBehaviour
     private static string Formatar(float m)
     {
         return (m >= 0.999f && m <= 1.001f) ? "—" : "×" + m.ToString("0.00");
+    }
+
+    // ---------------- RECORDES ----------------
+    //
+    // O que segura alguem num roguelike nao e a partida, e o placar que ela
+    // deixa. Risk of Rain 2 guarda o registro de cada run; Balatro tem
+    // historico. Aqui sao tres blocos: o melhor de cada categoria, o
+    // somatorio da carreira, e as ultimas doze partidas em ordem.
+
+    private void MontarRecordes()
+    {
+        bool vazio = Recordes.Partidas == 0;
+
+        if (vazio)
+        {
+            var aviso = UIKit.Texto3(conteudo, "Vazio", "NENHUMA PARTIDA AINDA\n<size=16>jogue uma vez e seus recordes aparecem aqui</size>",
+                                     26f, TextAlignmentOptions.Center, UIKit.TextoFraco, true);
+            UIKit.Esticar(aviso);
+            return;
+        }
+
+        // ---- melhores marcas ----
+        var tituloA = UIKit.Texto3(conteudo, "TA", "MELHORES MARCAS", 13f, TextAlignmentOptions.Left, UIKit.Destaque, true);
+        UIKit.Por(tituloA, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -18f), new Vector2(400f, 20f));
+        tituloA.characterSpacing = 8f;
+
+        string[][] marcas = new string[][] {
+            new string[]{ "MELHOR WAVE",   Recordes.MelhorWave.ToString() },
+            new string[]{ "MAIS TEMPO",    Recordes.Relogio(Recordes.MelhorTempo) },
+            new string[]{ "MAIS ABATES",   Recordes.MaisAbates.ToString() },
+            new string[]{ "MAIOR NÍVEL",   Recordes.MaiorNivel.ToString() },
+            new string[]{ "MAIOR DANO",    Recordes.MaiorDano.ToString() },
+            new string[]{ "MAIOR GOLPE",   Recordes.MaiorGolpe.ToString() },
+            new string[]{ "PICO DE DANO",  Recordes.MaiorPicoDps + "/s" }
+        };
+        for (int i = 0; i < marcas.Length; i++)
+        {
+            int col = i % 4, lin = i / 4;
+            CartaoMarca(marcas[i][0], marcas[i][1], new Vector2(24f + col * 176f, -48f - lin * 92f), UIKit.Destaque);
+        }
+
+        // ---- carreira ----
+        var tituloB = UIKit.Texto3(conteudo, "TB", "CARREIRA", 13f, TextAlignmentOptions.Left, new Color(0.55f,0.78f,1f), true);
+        UIKit.Por(tituloB, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -240f), new Vector2(400f, 20f));
+        tituloB.characterSpacing = 8f;
+
+        CartaoMarca("PARTIDAS",     Recordes.Partidas.ToString(),                   new Vector2(24f, -270f),  new Color(0.55f,0.78f,1f));
+        CartaoMarca("ABATES TOTAIS", Recordes.AbatesTotais.ToString(),              new Vector2(200f, -270f), new Color(0.55f,0.78f,1f));
+        CartaoMarca("TEMPO TOTAL",  Recordes.Relogio(Recordes.TempoTotal),          new Vector2(376f, -270f), new Color(0.55f,0.78f,1f));
+        CartaoMarca("MÉDIA/PARTIDA", (Recordes.AbatesTotais / Mathf.Max(1, Recordes.Partidas)) + " abates", new Vector2(552f, -270f), new Color(0.55f,0.78f,1f));
+
+        // ---- historico ----
+        var tituloC = UIKit.Texto3(conteudo, "TC", "ÚLTIMAS PARTIDAS", 13f, TextAlignmentOptions.Left, UIKit.TextoFraco, true);
+        UIKit.Por(tituloC, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -388f), new Vector2(400f, 20f));
+        tituloC.characterSpacing = 8f;
+
+        var hist = Recordes.Historico();
+        int melhorWave = Recordes.MelhorWave;
+        for (int i = 0; i < hist.Count && i < 8; i++)
+        {
+            var h = hist[i];
+            bool ehMelhor = h.wave >= melhorWave && melhorWave > 0;
+            var linha = UIKit.PainelBordado(conteudo, "H" + i, ehMelhor ? UIKit.PainelForte : UIKit.Painel, 8);
+            UIKit.Por(linha, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -416f - i * 34f), new Vector2(700f, 30f));
+            var d = linha.transform.GetChild(0);
+
+            // a mais recente em cima; a melhor de todas recebe a barra dourada
+            if (ehMelhor)
+            {
+                var faixa = UIKit.Caixa(d, "F", UIKit.Destaque, 2);
+                UIKit.Por(faixa, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(6f, 0f), new Vector2(3f, 20f));
+            }
+
+            var quando = UIKit.Texto3(d, "Q", h.quando, 12f, TextAlignmentOptions.Left, UIKit.TextoFraco, false);
+            UIKit.Por(quando, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(18f, 0f), new Vector2(90f, 18f));
+
+            var txt = "WAVE <b>" + h.wave + "</b>     " + Recordes.Relogio(h.tempo) + "     " + h.abates + " abates     nível " + h.nivel;
+            var linhaTxt = UIKit.Texto3(d, "T", txt, 13f, TextAlignmentOptions.Left, ehMelhor ? UIKit.Texto : UIKit.TextoFraco, false);
+            UIKit.Por(linhaTxt, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(116f, 0f), new Vector2(560f, 18f));
+        }
+    }
+
+    private void CartaoMarca(string rotulo, string valor, Vector2 pos, Color cor)
+    {
+        var caixa = UIKit.PainelBordado(conteudo, "M_" + rotulo, UIKit.Painel, 10);
+        UIKit.Por(caixa, new Vector2(0f, 1f), new Vector2(0f, 1f), pos, new Vector2(168f, 78f));
+        var d = caixa.transform.GetChild(0);
+
+        var lbl = UIKit.Texto3(d, "L", rotulo, 11f, TextAlignmentOptions.Left, UIKit.TextoFraco, true);
+        UIKit.Por(lbl, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(14f, -10f), new Vector2(146f, 16f));
+        lbl.characterSpacing = 4f;
+
+        var val = UIKit.Texto3(d, "V", valor, 26f, TextAlignmentOptions.Left, cor, true);
+        UIKit.Por(val, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(13f, -28f), new Vector2(146f, 34f));
     }
 
     // ---------------- CARTAS ----------------
