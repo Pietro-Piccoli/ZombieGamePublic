@@ -66,7 +66,10 @@ public class PreviewArma : MonoBehaviour
         camGo.transform.SetParent(transform, false);
         cam = camGo.AddComponent<Camera>();
         cam.clearFlags = CameraClearFlags.SolidColor;
-        cam.backgroundColor = new Color(0f, 0f, 0f, 0f);   // fundo transparente
+        // Palco OPACO e um tom acima do painel. Com fundo transparente a cena do
+        // jogo aparecia atras da arma, e uma escopeta preta sobre cena noturna
+        // preta simplesmente sumia. Studio de fotografia: fundo neutro, arma na frente.
+        cam.backgroundColor = new Color(0.105f, 0.118f, 0.145f, 1f);
         cam.orthographic = false;
         cam.fieldOfView = 28f;
         cam.nearClipPlane = 0.05f;
@@ -78,16 +81,25 @@ public class PreviewArma : MonoBehaviour
         var luzA = new GameObject("LuzChave");
         luzA.transform.SetParent(transform, false);
         var lA = luzA.AddComponent<Light>();
-        lA.type = LightType.Directional; lA.intensity = 2.4f;
+        lA.type = LightType.Directional; lA.intensity = 3.6f;
         lA.color = new Color(1f, 0.96f, 0.90f);
         luzA.transform.rotation = Quaternion.Euler(28f, -140f, 0f);
 
         var luzB = new GameObject("LuzPreenche");
         luzB.transform.SetParent(transform, false);
         var lB = luzB.AddComponent<Light>();
-        lB.type = LightType.Directional; lB.intensity = 1.1f;
+        lB.type = LightType.Directional; lB.intensity = 1.9f;
         lB.color = new Color(0.55f, 0.68f, 0.95f);
         luzB.transform.rotation = Quaternion.Euler(-12f, 55f, 0f);
+
+        // luz de contorno: separa a silhueta do fundo. Sem ela um modelo escuro
+        // vira uma mancha sem forma.
+        var luzC = new GameObject("LuzContorno");
+        luzC.transform.SetParent(transform, false);
+        var lC = luzC.AddComponent<Light>();
+        lC.type = LightType.Directional; lC.intensity = 2.2f;
+        lC.color = new Color(0.80f, 0.86f, 1f);
+        luzC.transform.rotation = Quaternion.Euler(-18f, 8f, 0f);
 
         pivo = new GameObject("Pivo").transform;
         pivo.SetParent(transform, false);
@@ -157,10 +169,21 @@ public class PreviewArma : MonoBehaviour
         Vector3 desloc = pivo.position - b.center;
         modelo.transform.position += desloc;
 
-        float raio = b.extents.magnitude;
-        float dist = raio / Mathf.Sin(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * 1.12f;
+        // ENQUADRAMENTO. O calculo antigo usava o raio da esfera e so o FOV
+        // vertical: pra uma arma comprida isso deixava sobra demais dos lados e
+        // a arma nascia pequena no meio do painel. Agora mede os dois eixos
+        // separadamente e usa o que aperta primeiro.
+        //
+        // A arma GIRA em torno do pivo, entao o raio horizontal e a diagonal
+        // XZ - e o maior que ela vai ocupar em qualquer momento do giro.
+        float raioH = new Vector2(b.extents.x, b.extents.z).magnitude;
+        float raioV = b.extents.y;
+        float aspecto = (float)rt.width / rt.height;
+        float tanV = Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+        float tanH = tanV * aspecto;
+        float dist = Mathf.Max(raioV / tanV, raioH / tanH) * 1.14f;
 
-        cam.transform.position = pivo.position + new Vector3(0f, 0.12f * raio, -dist);
+        cam.transform.position = pivo.position + new Vector3(0f, 0.22f * raioH, -dist);
         cam.transform.LookAt(pivo.position);
     }
 

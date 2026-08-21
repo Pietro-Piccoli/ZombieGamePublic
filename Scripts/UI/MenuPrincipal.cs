@@ -322,7 +322,7 @@ public class MenuPrincipal : MonoBehaviour
         prt.offsetMin = new Vector2(316f, 0f); prt.offsetMax = new Vector2(-436f, Topo);
         var dPrev = colPrev.transform.GetChild(0);
 
-        if (preview == null && arma != null) preview = PreviewArma.Criar(arma, 900, 640);
+        if (preview == null && arma != null) preview = PreviewArma.Criar(arma, 1000, 670);
         else if (preview != null) { preview.TrocarArma(arma); preview.Remontar(); }
 
         if (preview != null)
@@ -342,7 +342,9 @@ public class MenuPrincipal : MonoBehaviour
         nomeArma.characterSpacing = 8f;
 
         MontarFichaDaArma(dPrev, arma);
-        MontarBarrasDeStatus(dPrev);
+        // as barras falam so do que os ANEXOS mudam: numa arma sem anexo elas
+        // ficavam quatro linhas paradas em zero, sem dizer nada
+        if (arma != null && arma.SlotsDaArma.Length > 0) MontarBarrasDeStatus(dPrev);
 
         // ---- coluna 3: pecas do slot ----
         var colPecas = UIKit.PainelBordado(conteudo, "ColPecas", UIKit.Painel, UIKit.RaioPainel);
@@ -420,28 +422,61 @@ public class MenuPrincipal : MonoBehaviour
                 string.IsNullOrEmpty(w.estilo) ? "—" : w.estilo };
         }
 
+        // A fita mora num trilho que se ESTICA com o painel, e cada ficha ocupa
+        // uma fatia proporcional dele. Com largura fixa em pixel a fita estourava
+        // a borda do painel em telas mais estreitas - que foi o que aconteceu.
         int n = rotulos.Length;
-        float larg = 150f, folga = 8f;
-        float total = n * larg + (n - 1) * folga;
+        var trilho = new GameObject("FitaFicha", typeof(RectTransform));
+        trilho.transform.SetParent(pai, false);
+        var trt = (RectTransform)trilho.transform;
+        trt.anchorMin = new Vector2(0f, 1f); trt.anchorMax = new Vector2(1f, 1f);
+        trt.pivot = new Vector2(0.5f, 1f);
+        trt.offsetMin = new Vector2(20f, 0f);
+        trt.offsetMax = new Vector2(-20f, 0f);
+        trt.anchoredPosition = new Vector2(0f, -50f);
+        trt.sizeDelta = new Vector2(trt.sizeDelta.x, 46f);
+
+        const float Folga = 5f;   // metade da folga sobra de cada lado da fatia
         for (int i = 0; i < n; i++)
         {
-            var chip = UIKit.Caixa(pai, "Ficha" + i, new Color(1f, 1f, 1f, 0.05f), 8);
-            UIKit.Por(chip, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                      new Vector2(-total * 0.5f + larg * 0.5f + i * (larg + folga), -52f),
-                      new Vector2(larg, 40f));
+            var chip = UIKit.Caixa(trilho.transform, "Ficha" + i, new Color(1f, 1f, 1f, 0.055f), 8);
+            var crt = chip.rectTransform;
+            crt.anchorMin = new Vector2(i / (float)n, 0f);
+            crt.anchorMax = new Vector2((i + 1) / (float)n, 1f);
+            crt.pivot = new Vector2(0.5f, 0.5f);
+            crt.offsetMin = new Vector2(Folga, 0f);
+            crt.offsetMax = new Vector2(-Folga, 0f);
 
+            // Cuidado com a altura: TMP com overflow=Truncate apaga a LINHA INTEIRA
+            // quando ela nao cabe na vertical. Com caixa de 13 px e fonte 10 (linha
+            // ~13,3 px) as fichas sairam vazias. Sobra de altura + Overflow resolve.
             var lr = UIKit.Texto3(chip.transform, "R", rotulos[i], 10f, TextAlignmentOptions.Center, UIKit.TextoFraco, true);
-            UIKit.Por(lr, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -4f), new Vector2(larg - 8f, 13f));
+            var lrt = lr.rectTransform;
+            lrt.anchorMin = new Vector2(0f, 1f); lrt.anchorMax = new Vector2(1f, 1f);
+            lrt.pivot = new Vector2(0.5f, 1f);
+            lrt.offsetMin = new Vector2(4f, -21f); lrt.offsetMax = new Vector2(-4f, -3f);
             lr.characterSpacing = 2f;
+            lr.textWrappingMode = TextWrappingModes.NoWrap;
+            lr.overflowMode = TextOverflowModes.Overflow;
+            lr.enableAutoSizing = true; lr.fontSizeMin = 7.5f; lr.fontSizeMax = 10f;
 
             var lv = UIKit.Texto3(chip.transform, "V", valores[i], 15f, TextAlignmentOptions.Center, UIKit.Destaque, true);
-            UIKit.Por(lv, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(larg - 8f, 20f));
+            var lvt = lv.rectTransform;
+            lvt.anchorMin = new Vector2(0f, 1f); lvt.anchorMax = new Vector2(1f, 1f);
+            lvt.pivot = new Vector2(0.5f, 1f);
+            lvt.offsetMin = new Vector2(4f, -44f); lvt.offsetMax = new Vector2(-4f, -21f);
+            lv.textWrappingMode = TextWrappingModes.NoWrap;
+            lv.overflowMode = TextOverflowModes.Overflow;
+            lv.enableAutoSizing = true; lv.fontSizeMin = 10f; lv.fontSizeMax = 15f;
         }
 
         if (!string.IsNullOrEmpty(w.descricao))
         {
             var d = UIKit.Texto3(pai, "DescArma", w.descricao, 13f, TextAlignmentOptions.Center, UIKit.TextoFraco, false);
-            UIKit.Por(d, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 108f), new Vector2(620f, 40f));
+            var drt = d.rectTransform;
+            drt.anchorMin = new Vector2(0f, 0f); drt.anchorMax = new Vector2(1f, 0f);
+            drt.pivot = new Vector2(0.5f, 0f);
+            drt.offsetMin = new Vector2(28f, 104f); drt.offsetMax = new Vector2(-28f, 148f);
             d.textWrappingMode = TextWrappingModes.Normal;
         }
     }
@@ -659,8 +694,20 @@ public class MenuPrincipal : MonoBehaviour
         }
     }
 
-    private void MontarBarrasDeStatus(Transform pai)
+    private void MontarBarrasDeStatus(Transform paiReal)
     {
+        // As barras ficavam grudadas no canto de baixo a esquerda, com o nome e a
+        // descricao centrados logo acima - o painel inteiro lia torto. Agora elas
+        // moram num bloco centrado.
+        var bloco = new GameObject("BlocoBarras", typeof(RectTransform));
+        bloco.transform.SetParent(paiReal, false);
+        var brt = (RectTransform)bloco.transform;
+        brt.anchorMin = new Vector2(0.5f, 0f); brt.anchorMax = new Vector2(0.5f, 0f);
+        brt.pivot = new Vector2(0.5f, 0f);
+        brt.anchoredPosition = Vector2.zero;
+        brt.sizeDelta = new Vector2(604f, 104f);
+        Transform pai = bloco.transform;
+
         float e0, c0, d0, r0;
         Multiplicadores(null, false, out e0, out c0, out d0, out r0);
 
