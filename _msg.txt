@@ -1,5 +1,0 @@
-Codigo-fonte do jogo + README
-
-Os 79 scripts do projeto, 15.885 linhas. O projeto Unity completo e
-privado porque inclui pacotes de arte comprados, que nao podem ser
-redistribuidos.
