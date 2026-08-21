@@ -3,7 +3,7 @@
 Shooter de horda em terceira pessoa, feito em **Unity 6 / URP**, ambientado numa favela carioca à noite.
 Você segura ondas de zumbis que ficam progressivamente mais difíceis, junta dinheiro e XP, escolhe cartas de upgrade entre as ondas e melhora a arma numa armaria entre partidas.
 
-Este repositório contém **o código-fonte do jogo** — os 85 scripts que eu escrevi. O projeto Unity completo é privado porque inclui pacotes de arte comprados, que não podem ser redistribuídos.
+Este repositório contém **o código-fonte do jogo** — os 86 scripts que eu escrevi. O projeto Unity completo é privado porque inclui pacotes de arte comprados, que não podem ser redistribuídos.
 
 ![Enfrentando a horda](img/gran_0314.png)
 
@@ -14,7 +14,7 @@ Este repositório contém **o código-fonte do jogo** — os 85 scripts que eu e
 Sendo direto, porque é a primeira pergunta que se faz num projeto assim:
 
 **Meu — tudo neste repositório:**
-todos os sistemas de jogo, a arquitetura, a UI, a progressão, a IA, a física de morte, o gerador procedural da cidade. 85 scripts, 17.149 linhas.
+todos os sistemas de jogo, a arquitetura, a UI, a progressão, a IA, a física de morte, o gerador procedural da cidade. 86 scripts, 17.911 linhas.
 
 **Não é meu:**
 modelos, animações e efeitos visuais são pacotes comprados na Asset Store e no Mixamo — Voyager (animações), Hovl Studio (VFX), PolyOne, TreePack, e o modelo da AK-47. Nada de arte neste projeto foi feito por mim.
@@ -69,6 +69,31 @@ Roda numa camada própria do Animator, com máscara só de braços, então as pe
 
 ![Arremesso de granada](img/frt_0530.png)
 
+### Três armas que ocupam espaços diferentes
+
+O problema de colocar uma segunda arma num jogo de horda é que uma delas sempre vira a certa. A escopeta não foi ajustada no olho: eu montei uma bancada dentro do editor — alvos congelados a distâncias fixas, recuo zerado, 40 a 60 tiros por ponto — e medi o dano médio por tiro das duas, de quadril e mirando, contra um alvo só e contra uma fila de quatro.
+
+O resultado é o cruzamento que eu queria:
+
+| mirando, DPS sustentado | 3 m | 6 m | 10 m | 16 m | 25 m |
+|---|---|---|---|---|---|
+| **alvo só** — Calibre 12 | 193 | 186 | 153 | 67 | 22 |
+| **alvo só** — AK-47 | 189 | 199 | 186 | 166 | 100 |
+| **fila de 4** — Calibre 12 | 407 | 385 | 278 | 141 | 51 |
+| **fila de 4** — AK-47 | 203 | 203 | 183 | 161 | 116 |
+
+Contra um alvo só elas empatam até uns 6 m e depois a AK abre. Contra um aglomerado a 12 vale o dobro até 10 m, e perde a partir dos 16 m. Nenhuma das duas é melhor: elas resolvem problemas diferentes.
+
+O que produz essa curva são três mecanismos, todos emprestados de jogos que já resolveram isso — Left 4 Dead 2, Call of Duty e Killing Floor:
+
+- **espalhamento em cone**, que faz o chumbo abrir com a distância (a 3 m o tiro inteiro cabe no alvo; a 18 m cabem 17% dele)
+- **queda de dano por distância** na ficha da arma, um degrau suave entre 12 m e 30 m
+- **perfuração**, que faz cada bago atravessar até dois zumbis — é o que transforma uma fila numa oportunidade em vez de um problema
+
+O lança-rojão é o terceiro caminho: projétil de verdade, que voa e pode ser desviado, com estouro em área e dano no próprio jogador se ele atirar perto demais. Um foguete a cada seis segundos.
+
+`Scripts/Weapons/WeaponData.cs` · `Scripts/Weapons/WeaponController.cs` · `Scripts/Weapons/Foguete.cs`
+
 ### Cidade gerada por código
 
 A favela, o morro, a orla e o panorama do Rio ao fundo são gerados proceduralmente na carga da cena — ruas, lajes, muros, vegetação, iluminação de poste e céu de fim de tarde. Cerca de 1.800 linhas entre os geradores.
@@ -110,8 +135,8 @@ Scripts/
 Em desenvolvimento. Funciona de ponta a ponta — menu, partida, progressão, morte, meta-progressão entre partidas — mas ainda faltam coisas que eu sei que faltam:
 
 - **áudio** (o jogo ainda não tem nenhum som)
-- mais armas — hoje só existe a AK-47
 - um objetivo de fim de partida (chefe, extração, algo que encerre a run)
+- inimigos que exijam respostas diferentes, não só mais vida
 
 O projeto começou em junho de 2026 e passou a ser versionado em agosto, então o histórico deste repositório não cobre o início.
 
@@ -121,11 +146,12 @@ O projeto começou em junho de 2026 e passou a ser versionado em agosto, então 
 
 | | |
 |---|---|
-| Scripts | 85 |
-| Linhas | 17.149 |
+| Scripts | 86 |
+| Linhas | 17.911 |
 | Cartas de upgrade | 42 |
 | Tipos de zumbi | 5 |
-| Anexos de arma | 16 |
+| Armas | 3 |
+| Anexos de arma | 58 |
 | Engine | Unity 6 · URP Deferred |
 
 ---

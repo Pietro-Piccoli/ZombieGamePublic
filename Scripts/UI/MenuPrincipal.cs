@@ -30,9 +30,6 @@ public class MenuPrincipal : MonoBehaviour
     private int abaAtiva = 0;
     private readonly List<Button> abas = new List<Button>();
 
-    private static readonly SlotAttach[] SlotsDaAK = new SlotAttach[]
-    { SlotAttach.Mira, SlotAttach.Cano, SlotAttach.UnderBarrel, SlotAttach.LateralEsq, SlotAttach.LateralDir };
-
     // ---------------- nascimento ----------------
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -225,27 +222,70 @@ public class MenuPrincipal : MonoBehaviour
     }
 
     // ---------------- ARMARIA (padrao Gunsmith) ----------------
+    //
+    // Agora a armaria tem duas camadas. Em cima, a FAIXA DE ARMAS: o jogador
+    // escolhe com o que vai jogar a run, como se escolhe personagem em Risk of
+    // Rain 2 - uma decisao por partida, sem troca no meio. Embaixo, a bancada
+    // de sempre: slots a esquerda, modelo no meio, pecas a direita.
+    //
+    // Cada arma guarda a PROPRIA montagem, e uma peca so aparece na lista se
+    // ela serve naquela arma. Trilho de escopeta nao encaixa em fuzil.
+
+    /// <summary>A arma que o jogador esta OLHANDO. Pode ser uma que ele ainda nao comprou.</summary>
+    private WeaponData armaVista;
+
+    private WeaponData ArmaDaTela
+    {
+        get
+        {
+            var todas = MetaProgressao.TodasAsArmas();
+            if (armaVista != null)
+                for (int i = 0; i < todas.Length; i++)
+                    if (todas[i] == armaVista) return armaVista;
+            armaVista = MetaProgressao.ArmaSelecionada;
+            if (armaVista == null && todas.Length > 0) armaVista = todas[0];
+            return armaVista;
+        }
+    }
 
     private void MontarArmaria()
     {
-        var arma = AssetDatabase_CarregarAK();
+        WeaponData arma = ArmaDaTela;
+        bool temAArma = arma != null && MetaProgressao.ArmaComprada(arma);
+        const float Topo = -104f;   // altura reservada pra faixa de armas
+
+        MontarFaixaDeArmas(arma);
+
+        // o slot em foco precisa existir NESTA arma
+        SlotAttach[] slots = arma != null ? arma.SlotsDaArma : new SlotAttach[0];
+        bool temSlot = false;
+        for (int i = 0; i < slots.Length; i++) if (slots[i] == slotAtivo) temSlot = true;
+        if (!temSlot) { slotAtivo = slots.Length > 0 ? slots[0] : SlotAttach.Mira; selecaoAtiva = false; selecionado = null; }
 
         // ---- coluna 1: slots ----
         var colSlots = UIKit.PainelBordado(conteudo, "ColSlots", UIKit.Painel, UIKit.RaioPainel);
         var srt = (RectTransform)colSlots.transform;
         srt.anchorMin = new Vector2(0f, 0f); srt.anchorMax = new Vector2(0f, 1f);
-        srt.pivot = new Vector2(0f, 0.5f);
-        srt.anchoredPosition = Vector2.zero; srt.sizeDelta = new Vector2(300f, 0f);
+        srt.pivot = new Vector2(0f, 1f);
+        srt.anchoredPosition = new Vector2(0f, Topo); srt.sizeDelta = new Vector2(300f, Topo);
         var dSlots = colSlots.transform.GetChild(0);
 
         var tSlots = UIKit.Texto3(dSlots, "T", "PONTOS DE MONTAGEM", 15f, TextAlignmentOptions.Center, UIKit.TextoFraco, true);
         UIKit.Por(tSlots, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(270f, 22f));
         tSlots.characterSpacing = 5f;
 
-        for (int i = 0; i < SlotsDaAK.Length; i++)
+        if (slots.Length == 0)
         {
-            SlotAttach s = SlotsDaAK[i];
-            AnexoArma eq = MetaProgressao.ResolverEquipado(s);
+            var nada = UIKit.Texto3(dSlots, "Nada", "Esta arma não aceita anexo.\nÉ um tubo com um foguete dentro.",
+                                    14f, TextAlignmentOptions.Center, UIKit.TextoFraco, false);
+            UIKit.Por(nada, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -70f), new Vector2(260f, 60f));
+            nada.textWrappingMode = TextWrappingModes.Normal;
+        }
+
+        for (int i = 0; i < slots.Length; i++)
+        {
+            SlotAttach s = slots[i];
+            AnexoArma eq = arma != null ? MetaProgressao.ResolverEquipado(arma.Id, s) : null;
             bool ativo = s == slotAtivo;
 
             var linha = UIKit.Caixa(dSlots, "S" + i, ativo ? new Color(1f, 1f, 1f, 0.14f) : new Color(1f, 1f, 1f, 0.05f), 10);
@@ -261,10 +301,10 @@ public class MenuPrincipal : MonoBehaviour
             UIKit.Por(val, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -32f), new Vector2(230f, 24f));
 
             SlotAttach cap = s;
-            var b = linha.gameObject.AddComponent<Button>();
-            b.targetGraphic = linha;
-            var cc = b.colors; cc.highlightedColor = new Color(2f, 2f, 2f, 1f); cc.fadeDuration = 0.08f; b.colors = cc;
-            b.onClick.AddListener(() =>
+            var bs = linha.gameObject.AddComponent<Button>();
+            bs.targetGraphic = linha;
+            var cs = bs.colors; cs.highlightedColor = new Color(2f, 2f, 2f, 1f); cs.fadeDuration = 0.08f; bs.colors = cs;
+            bs.onClick.AddListener(() =>
             {
                 // trocar de slot limpa a selecao: senao a peca escolhida num
                 // slot era simulada no slot novo, e as barras mentiam
@@ -279,11 +319,11 @@ public class MenuPrincipal : MonoBehaviour
         var colPrev = UIKit.PainelBordado(conteudo, "ColPrev", UIKit.Painel, UIKit.RaioPainel);
         var prt = (RectTransform)colPrev.transform;
         prt.anchorMin = new Vector2(0f, 0f); prt.anchorMax = new Vector2(1f, 1f);
-        prt.offsetMin = new Vector2(316f, 0f); prt.offsetMax = new Vector2(-436f, 0f);
+        prt.offsetMin = new Vector2(316f, 0f); prt.offsetMax = new Vector2(-436f, Topo);
         var dPrev = colPrev.transform.GetChild(0);
 
         if (preview == null && arma != null) preview = PreviewArma.Criar(arma, 900, 640);
-        else if (preview != null) preview.Remontar();
+        else if (preview != null) { preview.TrocarArma(arma); preview.Remontar(); }
 
         if (preview != null)
         {
@@ -293,72 +333,226 @@ public class MenuPrincipal : MonoBehaviour
             img.raycastTarget = false;
             var irt = img.rectTransform;
             irt.anchorMin = new Vector2(0f, 0f); irt.anchorMax = new Vector2(1f, 1f);
-            irt.offsetMin = new Vector2(10f, 92f); irt.offsetMax = new Vector2(-10f, -46f);
+            irt.offsetMin = new Vector2(10f, 92f); irt.offsetMax = new Vector2(-10f, -84f);
         }
 
-        var nomeArma = UIKit.Texto3(dPrev, "NomeArma", arma != null ? arma.displayName.ToUpper() : "AK-47", 26f,
-                                    TextAlignmentOptions.Center, UIKit.Texto, true);
-        UIKit.Por(nomeArma, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -14f), new Vector2(420f, 32f));
+        var nomeArma = UIKit.Texto3(dPrev, "NomeArma", arma != null ? arma.displayName.ToUpper() : "—", 26f,
+                                    TextAlignmentOptions.Center, temAArma ? UIKit.Texto : UIKit.TextoFraco, true);
+        UIKit.Por(nomeArma, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -14f), new Vector2(520f, 32f));
         nomeArma.characterSpacing = 8f;
 
+        MontarFichaDaArma(dPrev, arma);
         MontarBarrasDeStatus(dPrev);
 
         // ---- coluna 3: pecas do slot ----
         var colPecas = UIKit.PainelBordado(conteudo, "ColPecas", UIKit.Painel, UIKit.RaioPainel);
         var crt = (RectTransform)colPecas.transform;
         crt.anchorMin = new Vector2(1f, 0f); crt.anchorMax = new Vector2(1f, 1f);
-        crt.pivot = new Vector2(1f, 0.5f);
-        crt.anchoredPosition = Vector2.zero; crt.sizeDelta = new Vector2(420f, 0f);
+        crt.pivot = new Vector2(1f, 1f);
+        crt.anchoredPosition = new Vector2(0f, Topo); crt.sizeDelta = new Vector2(420f, Topo);
         var dPecas = colPecas.transform.GetChild(0);
 
-        var tPecas = UIKit.Texto3(dPecas, "T", AnexoArma.NomeSlot(slotAtivo), 17f, TextAlignmentOptions.Center, UIKit.Destaque, true);
+        var tPecas = UIKit.Texto3(dPecas, "T", slots.Length > 0 ? AnexoArma.NomeSlot(slotAtivo) : "SEM ANEXOS",
+                                  17f, TextAlignmentOptions.Center, UIKit.Destaque, true);
         UIKit.Por(tPecas, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(380f, 24f));
         tPecas.characterSpacing = 6f;
 
+        MontarRodapeAcao(dPecas);
+
+        if (arma == null || slots.Length == 0) return;
+
+        if (!temAArma)
+        {
+            var aviso = UIKit.Texto3(dPecas, "Aviso", "Compre a arma primeiro.\nDepois ela abre a bancada dela.",
+                                     15f, TextAlignmentOptions.Center, UIKit.TextoFraco, false);
+            UIKit.Por(aviso, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -80f), new Vector2(340f, 60f));
+            aviso.textWrappingMode = TextWrappingModes.Normal;
+            return;
+        }
+
         var lista = new List<AnexoArma>();
-        foreach (var a in MetaProgressao.TodosOsAnexos())
-            if (a != null && a.slot == slotAtivo) lista.Add(a);
+        foreach (var an in MetaProgressao.TodosOsAnexos())
+            if (an != null && an.slot == slotAtivo && an.ServePara(arma.Id)) lista.Add(an);
         lista.Sort((x, y) => x.preco.CompareTo(y.preco));
 
-        // opcao de deixar o slot vazio
+        // Com 11 opticas na lista nao cabe tudo na tela: a coluna rola.
+        Transform rolo = MontarRoloDePecas(dPecas, lista.Count + 1);
+
         int linhaN = 0;
-        var vazio = MontarLinhaPeca(dPecas, null, linhaN++);
-
-        foreach (var a in lista) MontarLinhaPeca(dPecas, a, linhaN++);
-
-        MontarRodapeAcao(dPecas);
+        MontarLinhaPeca(rolo, null, linhaN++);
+        foreach (var an in lista) MontarLinhaPeca(rolo, an, linhaN++);
     }
 
-    private static WeaponData AssetDatabase_CarregarAK()
+    /// <summary>
+    /// Os numeros DA ARMA (nao dos anexos), numa fita de fichas embaixo do nome.
+    /// Sem isto o jogador escolhe entre tres armas no escuro: as barras de baixo
+    /// so falam do que os anexos mudam, nunca do que a arma e.
+    /// </summary>
+    private void MontarFichaDaArma(Transform pai, WeaponData w)
     {
-        var todas = Resources.LoadAll<WeaponData>("Armas");
-        if (todas != null && todas.Length > 0) return todas[0];
-#if UNITY_EDITOR
-        return UnityEditor.AssetDatabase.LoadAssetAtPath<WeaponData>("Assets/Data/Weapons/AK47_LowPoly.asset");
-#else
-        return null;
-#endif
+        if (w == null) return;
+
+        string[] rotulos, valores;
+        if (w.tipoDisparo == TipoDisparo.Projetil)
+        {
+            rotulos = new string[] { "DANO DO ESTOURO", "RAIO", "CADÊNCIA", "RECARGA", "ESTILO" };
+            valores = new string[] {
+                w.explosaoDano.ToString(),
+                w.explosaoRaio.ToString("0.0") + " m",
+                w.fireRate.ToString("0.0") + "/s",
+                w.reloadTime.ToString("0.0") + " s",
+                string.IsNullOrEmpty(w.estilo) ? "—" : w.estilo };
+        }
+        else
+        {
+            string dano = w.pellets > 1
+                ? (w.damage * w.pellets) + "  (" + w.pellets + " × " + w.damage + ")"
+                : w.damage.ToString();
+            string alcance = w.danoMinimo >= 1f
+                ? "longo"
+                : w.quedaInicio.ToString("0") + " m";
+            rotulos = new string[] { "DANO POR TIRO", "CADÊNCIA", "PENTE", "DANO CHEIO ATÉ", "ESTILO" };
+            valores = new string[] {
+                dano,
+                w.fireRate.ToString("0.0") + "/s",
+                w.magazineSize + "  ·  " + w.reloadTime.ToString("0.0") + " s",
+                alcance,
+                string.IsNullOrEmpty(w.estilo) ? "—" : w.estilo };
+        }
+
+        int n = rotulos.Length;
+        float larg = 150f, folga = 8f;
+        float total = n * larg + (n - 1) * folga;
+        for (int i = 0; i < n; i++)
+        {
+            var chip = UIKit.Caixa(pai, "Ficha" + i, new Color(1f, 1f, 1f, 0.05f), 8);
+            UIKit.Por(chip, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                      new Vector2(-total * 0.5f + larg * 0.5f + i * (larg + folga), -52f),
+                      new Vector2(larg, 40f));
+
+            var lr = UIKit.Texto3(chip.transform, "R", rotulos[i], 10f, TextAlignmentOptions.Center, UIKit.TextoFraco, true);
+            UIKit.Por(lr, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -4f), new Vector2(larg - 8f, 13f));
+            lr.characterSpacing = 2f;
+
+            var lv = UIKit.Texto3(chip.transform, "V", valores[i], 15f, TextAlignmentOptions.Center, UIKit.Destaque, true);
+            UIKit.Por(lv, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(larg - 8f, 20f));
+        }
+
+        if (!string.IsNullOrEmpty(w.descricao))
+        {
+            var d = UIKit.Texto3(pai, "DescArma", w.descricao, 13f, TextAlignmentOptions.Center, UIKit.TextoFraco, false);
+            UIKit.Por(d, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 108f), new Vector2(620f, 40f));
+            d.textWrappingMode = TextWrappingModes.Normal;
+        }
+    }
+
+    /// <summary>Area rolavel pras pecas. Devolve o 'conteudo' onde as linhas entram.</summary>
+    private Transform MontarRoloDePecas(Transform pai, int quantasLinhas)
+    {
+        var vpGo = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+        vpGo.transform.SetParent(pai, false);
+        var vrt = (RectTransform)vpGo.transform;
+        vrt.anchorMin = new Vector2(0f, 0f); vrt.anchorMax = new Vector2(1f, 1f);
+        vrt.offsetMin = new Vector2(8f, 150f); vrt.offsetMax = new Vector2(-8f, -40f);
+        var vimg = vpGo.GetComponent<Image>();
+        vimg.color = new Color(0f, 0f, 0f, 0f); vimg.raycastTarget = true;
+
+        var ctGo = new GameObject("Conteudo", typeof(RectTransform));
+        ctGo.transform.SetParent(vpGo.transform, false);
+        var crt = (RectTransform)ctGo.transform;
+        crt.anchorMin = new Vector2(0f, 1f); crt.anchorMax = new Vector2(1f, 1f);
+        crt.pivot = new Vector2(0.5f, 1f);
+        crt.anchoredPosition = Vector2.zero;
+        // 92 = passo de uma linha (84 de caixa + 8 de folga), o mesmo de MontarLinhaPeca
+        crt.sizeDelta = new Vector2(0f, Mathf.Max(0f, 20f + quantasLinhas * 92f));
+
+        var sr = vpGo.AddComponent<ScrollRect>();
+        sr.content = crt; sr.viewport = vrt;
+        sr.horizontal = false; sr.vertical = true;
+        sr.movementType = ScrollRect.MovementType.Clamped;
+        sr.scrollSensitivity = 34f;
+        return ctGo.transform;
+    }
+
+    /// <summary>A faixa de armas no topo da armaria.</summary>
+    private void MontarFaixaDeArmas(WeaponData arma)
+    {
+        var todas = MetaProgressao.TodasAsArmas();
+        string idEquipada = MetaProgressao.ArmaSelecionadaId;
+
+        float larg = 250f, alt = 84f, folga = 12f;
+        for (int i = 0; i < todas.Length; i++)
+        {
+            WeaponData w = todas[i];
+            if (w == null) continue;
+            bool comprada = MetaProgressao.ArmaComprada(w);
+            bool equipada = comprada && w.Id == idEquipada;
+            bool olhando = w == arma;
+
+            Color fundo = olhando ? new Color(0.34f, 0.78f, 1f, 0.18f)
+                        : (equipada ? new Color(1f, 0.72f, 0.22f, 0.14f) : new Color(1f, 1f, 1f, 0.05f));
+            var caixa = UIKit.Caixa(conteudo, "A" + i, fundo, 10);
+            UIKit.Por(caixa, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                      new Vector2(i * (larg + folga), 0f), new Vector2(larg, alt));
+            caixa.rectTransform.pivot = new Vector2(0f, 1f);
+            caixa.raycastTarget = true;
+
+            var nome = UIKit.Texto3(caixa.transform, "N", w.displayName.ToUpper(), 18f, TextAlignmentOptions.Left,
+                                    comprada ? UIKit.Texto : new Color(0.55f, 0.59f, 0.66f), true);
+            UIKit.Por(nome, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(14f, -10f), new Vector2(220f, 22f));
+            nome.characterSpacing = 3f;
+
+            var est = UIKit.Texto3(caixa.transform, "E", w.estilo, 12f, TextAlignmentOptions.Left, UIKit.TextoFraco, true);
+            UIKit.Por(est, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(14f, -34f), new Vector2(140f, 16f));
+            est.characterSpacing = 4f;
+
+            string etq = equipada ? "NA MÃO" : (comprada ? "NA MOCHILA" : "$ " + w.preco);
+            Color cor = equipada ? UIKit.Destaque
+                      : (comprada ? new Color(0.55f, 0.60f, 0.68f)
+                      : (MetaProgressao.Dinheiro >= w.preco ? UIKit.Destaque : UIKit.Perigo));
+            var e2 = UIKit.Texto3(caixa.transform, "Q", etq, 14f, TextAlignmentOptions.Left, cor, true);
+            UIKit.Por(e2, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(14f, -56f), new Vector2(220f, 18f));
+
+            WeaponData cap = w;
+            var bt = caixa.gameObject.AddComponent<Button>();
+            bt.targetGraphic = caixa;
+            var cc2 = bt.colors; cc2.highlightedColor = new Color(2.1f, 2.1f, 2.1f, 1f); cc2.fadeDuration = 0.08f; bt.colors = cc2;
+            bt.onClick.AddListener(() => EscolherArma(cap));
+        }
+    }
+
+    /// <summary>Clicou numa arma da faixa: passa a olhar ela e, se ja for dele, equipa.</summary>
+    private void EscolherArma(WeaponData w)
+    {
+        armaVista = w;
+        selecaoAtiva = false; selecionado = null;
+        if (MetaProgressao.ArmaComprada(w)) MetaProgressao.ArmaSelecionadaId = w.Id;
+        if (preview != null) preview.LimparPrevisao();
+        AvisarArmaDoJogador();
+        Aba(1);
     }
 
     private GameObject MontarLinhaPeca(Transform pai, AnexoArma a, int indice)
     {
+        WeaponData arma = ArmaDaTela;
+        string idArma = arma != null ? arma.Id : "";
         bool comprado = a == null || MetaProgressao.AnexoComprado(a);
         bool equipado = (a == null)
-            ? string.IsNullOrEmpty(MetaProgressao.AnexoEquipado(slotAtivo))
-            : MetaProgressao.AnexoEquipado(slotAtivo) == a.id;
+            ? string.IsNullOrEmpty(MetaProgressao.AnexoEquipado(idArma, slotAtivo))
+            : MetaProgressao.AnexoEquipado(idArma, slotAtivo) == a.id;
 
         bool sel = selecaoAtiva && selecionado == a;
         Color corFundo = sel ? new Color(0.34f, 0.78f, 1f, 0.20f)
                        : (equipado ? new Color(1f, 0.72f, 0.22f, 0.14f) : new Color(1f, 1f, 1f, 0.05f));
         var caixa = UIKit.Caixa(pai, "P" + indice, corFundo, 10);
-        UIKit.Por(caixa, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -54f - indice * 92f), new Vector2(388f, 84f));
+        UIKit.Por(caixa, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -14f - indice * 92f), new Vector2(388f, 84f));
         caixa.raycastTarget = true;
 
         var nome = UIKit.Texto3(caixa.transform, "N", a == null ? "SEM ANEXO" : a.nomeExibicao, 19f,
                                 TextAlignmentOptions.Left, comprado ? UIKit.Texto : new Color(0.5f, 0.54f, 0.6f), true);
         UIKit.Por(nome, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -10f), new Vector2(280f, 24f));
 
-        string sub = a == null ? "Cano limpo, sem peca." : a.descricao;
+        string sub = a == null ? "Ponto de montagem livre." : a.descricao;
         var desc = UIKit.Texto3(caixa.transform, "D", sub, 13f, TextAlignmentOptions.TopLeft, UIKit.TextoFraco, false);
         UIKit.Por(desc, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -34f), new Vector2(268f, 40f));
         desc.textWrappingMode = TextWrappingModes.Normal;
@@ -370,11 +564,11 @@ public class MenuPrincipal : MonoBehaviour
         var et = UIKit.Texto3(caixa.transform, "E", etiqueta, 14f, TextAlignmentOptions.Center, corEt, true);
         UIKit.Por(et, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-14f, 0f), new Vector2(96f, 26f));
 
-        var b = caixa.gameObject.AddComponent<Button>();
-        b.targetGraphic = caixa;
-        var cc = b.colors; cc.highlightedColor = new Color(2.2f, 2.2f, 2.2f, 1f); cc.fadeDuration = 0.08f; b.colors = cc;
+        var bb = caixa.gameObject.AddComponent<Button>();
+        bb.targetGraphic = caixa;
+        var cc3 = bb.colors; cc3.highlightedColor = new Color(2.2f, 2.2f, 2.2f, 1f); cc3.fadeDuration = 0.08f; bb.colors = cc3;
         AnexoArma cap = a;
-        b.onClick.AddListener(() => Selecionar(cap));
+        bb.onClick.AddListener(() => Selecionar(cap));
         return caixa.gameObject;
     }
 
@@ -393,24 +587,39 @@ public class MenuPrincipal : MonoBehaviour
     /// <summary>O botao de acao: compra se falta, equipa se ja tem, remove se e a atual.</summary>
     private void Confirmar()
     {
+        WeaponData arma = ArmaDaTela;
+        if (arma == null) return;
+
+        // arma ainda nao comprada: o botao vira a compra da ARMA
+        if (!MetaProgressao.ArmaComprada(arma))
+        {
+            if (!MetaProgressao.ComprarArma(arma)) return;
+            MetaProgressao.ArmaSelecionadaId = arma.Id;
+            AtualizarBanco();
+            AvisarArmaDoJogador();
+            Aba(1);
+            return;
+        }
+
         if (!selecaoAtiva) return;
+        string idArma = arma.Id;
 
         if (selecionado == null)
         {
-            MetaProgressao.DesequiparSlot(slotAtivo);
+            MetaProgressao.DesequiparSlot(idArma, slotAtivo);
         }
         else if (!MetaProgressao.AnexoComprado(selecionado))
         {
             if (!MetaProgressao.ComprarAnexo(selecionado)) return;   // sem dinheiro
-            MetaProgressao.EquiparAnexo(selecionado, selecionado.slot);
+            MetaProgressao.EquiparAnexo(idArma, selecionado, selecionado.slot);
         }
-        else if (MetaProgressao.AnexoEquipado(selecionado.slot) == selecionado.id)
+        else if (MetaProgressao.AnexoEquipado(idArma, selecionado.slot) == selecionado.id)
         {
-            MetaProgressao.DesequiparSlot(selecionado.slot);
+            MetaProgressao.DesequiparSlot(idArma, selecionado.slot);
         }
         else
         {
-            MetaProgressao.EquiparAnexo(selecionado, selecionado.slot);
+            MetaProgressao.EquiparAnexo(idArma, selecionado, selecionado.slot);
         }
 
         selecaoAtiva = false;
@@ -424,6 +633,9 @@ public class MenuPrincipal : MonoBehaviour
     /// <summary>Se a arma do player ja existe na cena, remonta ela na hora.</summary>
     private static void AvisarArmaDoJogador()
     {
+        var wc = Object.FindAnyObjectByType<WeaponController>();
+        var nova = MetaProgressao.ArmaSelecionada;
+        if (wc != null && nova != null && wc.CurrentWeapon != nova) wc.EquiparDaArmaria(nova);
         var m = Object.FindAnyObjectByType<MontagemArma>();
         if (m != null) m.Recarregar();
     }
@@ -433,10 +645,15 @@ public class MenuPrincipal : MonoBehaviour
     private void Multiplicadores(AnexoArma substituto, bool usarSubstituto, out float esp, out float cad, out float dano, out float rec)
     {
         esp = 1f; cad = 1f; dano = 1f; rec = 1f;
+        WeaponData arma = ArmaDaTela;
+        if (arma == null) return;
+        string idArma = arma.Id;
         for (int s = 0; s < 6; s++)
         {
-            AnexoArma a = MetaProgressao.ResolverEquipado((SlotAttach)s);
-            if (usarSubstituto && (SlotAttach)s == slotAtivo) a = substituto;
+            SlotAttach slot = (SlotAttach)s;
+            if (!arma.AceitaSlot(slot)) continue;
+            AnexoArma a = MetaProgressao.ResolverEquipado(idArma, slot);
+            if (usarSubstituto && slot == slotAtivo) a = substituto;
             if (a == null) continue;
             esp *= a.multEspalhamento; cad *= a.multCadencia; dano *= a.multDano; rec *= a.multRecuo;
         }
@@ -676,6 +893,39 @@ public class MenuPrincipal : MonoBehaviour
         rt.anchoredPosition = new Vector2(0f, 14f);
         rt.sizeDelta = new Vector2(388f, 128f);
 
+        WeaponData arma = ArmaDaTela;
+
+        // ---- caso 1: a ARMA ainda nao e dele. O rodape vira a compra da arma. ----
+        if (arma != null && !MetaProgressao.ArmaComprada(arma))
+        {
+            bool paga = MetaProgressao.Dinheiro >= arma.preco;
+
+            var nA = UIKit.Texto3(caixa.transform, "N", arma.displayName.ToUpper(), 18f, TextAlignmentOptions.Center, UIKit.Texto, true);
+            UIKit.Por(nA, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -10f), new Vector2(360f, 24f));
+
+            var sA = UIKit.Texto3(caixa.transform, "S", paga ? "Custa $ " + arma.preco : "Faltam $ " + (arma.preco - MetaProgressao.Dinheiro),
+                                  13f, TextAlignmentOptions.Center, paga ? UIKit.TextoFraco : UIKit.Perigo, false);
+            UIKit.Por(sA, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -36f), new Vector2(360f, 20f));
+
+            var bA = Botao(caixa.transform, paga ? "COMPRAR  $ " + arma.preco : "SEM DINHEIRO",
+                           new Vector2(0f, -62f), 340f, 46f, paga ? UIKit.Destaque : UIKit.Perigo);
+            bA.interactable = paga;
+            if (paga) bA.onClick.AddListener(Confirmar);
+            return;
+        }
+
+        // ---- caso 2: arma sem pontos de montagem (rojao) ----
+        if (arma != null && arma.SlotsDaArma.Length == 0)
+        {
+            var d0 = UIKit.Texto3(caixa.transform, "Dica", "Nada pra montar aqui.\nEsta arma já está pronta.",
+                                  14f, TextAlignmentOptions.Center, UIKit.TextoFraco, false);
+            UIKit.Esticar(d0);
+            d0.textWrappingMode = TextWrappingModes.Normal;
+            return;
+        }
+
+        string idArma = arma != null ? arma.Id : "";
+
         if (!selecaoAtiva)
         {
             var dica = UIKit.Texto3(caixa.transform, "Dica", "Clique numa peça pra ver como ela fica\ne o que ela muda — sem gastar nada.",
@@ -688,8 +938,8 @@ public class MenuPrincipal : MonoBehaviour
         bool ehVazio = selecionado == null;
         bool comprado = ehVazio || MetaProgressao.AnexoComprado(selecionado);
         bool equipado = ehVazio
-            ? string.IsNullOrEmpty(MetaProgressao.AnexoEquipado(slotAtivo))
-            : MetaProgressao.AnexoEquipado(selecionado.slot) == selecionado.id;
+            ? string.IsNullOrEmpty(MetaProgressao.AnexoEquipado(idArma, slotAtivo))
+            : MetaProgressao.AnexoEquipado(idArma, selecionado.slot) == selecionado.id;
         int preco = ehVazio ? 0 : selecionado.preco;
         bool podePagar = comprado || MetaProgressao.Dinheiro >= preco;
 

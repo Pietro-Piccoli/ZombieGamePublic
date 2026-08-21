@@ -80,6 +80,17 @@ public class WeaponController : MonoBehaviour
             muzzle = m != null ? m : transform;
         }
 
+        // A ARMA DA PARTIDA vem da armaria. O jogador escolhe antes de comecar,
+        // como Risk of Rain 2 e Vampire Survivors fazem com personagem: uma
+        // escolha por run, sem troca no meio. O loadout do Inspector vira
+        // apenas o plano B (cena de teste sem save).
+        WeaponData daArmaria = MetaProgressao.ArmaSelecionada;
+        if (daArmaria != null)
+        {
+            loadout = new WeaponData[] { daArmaria };
+            startingSlot = 0;
+        }
+
         if (loadout == null || loadout.Length == 0)
         {
             Debug.LogError("[WeaponController] Loadout vazio - arraste as fichas WeaponData.", this);
@@ -113,6 +124,20 @@ public class WeaponController : MonoBehaviour
     {
         float mult = inv != null ? inv.MagazineMult(w) : 1f;
         return Mathf.Max(1, Mathf.RoundToInt(w.magazineSize * mult));
+    }
+
+    /// <summary>
+    /// A armaria trocou a arma da run. Reconstroi o loadout na hora, pra o
+    /// jogador ver a arma nova na mao ainda dentro do menu.
+    /// </summary>
+    public void EquiparDaArmaria(WeaponData nova)
+    {
+        if (nova == null) return;
+        loadout = new WeaponData[] { nova };
+        ammo = new int[1];
+        ammo[0] = MagSize(nova);
+        startingSlot = 0;
+        SelectSlot(0);
     }
 
     public void SelectSlot(int slot)
@@ -207,8 +232,40 @@ public class WeaponController : MonoBehaviour
         Ray aimRay = cameraRig.GetAimRay();
         float spread = CurrentSpread * (montagem != null ? montagem.MultEspalhamento : 1f);
 
+        // ---- ARMA DE PROJETIL (rojao) ----
+        // Nao e hitscan: nasce no cano e voa. Pra ela ir aonde a mira aponta e
+        // nao paralelo a ela, primeiro descubro que ponto do mundo a mira toca
+        // e so entao aponto o foguete DO CANO pra esse ponto. E o mesmo truque
+        // que qualquer shooter em terceira pessoa usa pra alinhar cano e mira.
+        if (w.tipoDisparo == TipoDisparo.Projetil)
+        {
+            Vector3 origemF = muzzle != null ? muzzle.position : aimRay.origin;
+            Vector3 alvo;
+            RaycastHit hm;
+            if (Physics.Raycast(aimRay, out hm, w.range, hitMask, QueryTriggerInteraction.Ignore))
+                alvo = hm.point;
+            else
+                alvo = aimRay.origin + aimRay.direction * w.range;
+
+            Vector3 dirF = (alvo - origemF);
+            if (dirF.sqrMagnitude < 0.01f) dirF = aimRay.direction;
+            dirF = ApplySpread(dirF.normalized, spread);
+
+            float multF = (inv != null ? inv.DamageMult(w) : 1f)
+                        * (montagem != null ? montagem.MultDano : 1f)
+                        * (efeitos != null ? efeitos.MultSangueFrio : 1f);
+            Foguete.Lancar(w, origemF, dirF, multF, transform);
+
+            if (anim == null) anim = GetComponent<AnimacaoJogador>();
+            if (anim != null) anim.PlayShoot();
+            AplicarRecuo(w);
+            EstatisticasRun.RegistrarTiro();
+            if (!w.infiniteAmmo) ammo[CurrentSlot]--;
+            return;
+        }
         int pellets = Mathf.Max(1, Mathf.RoundToInt(w.pellets * (inv != null ? inv.PelletsMult(w) : 1f)));
-        int pierce = inv != null ? inv.Pierce(w) : 0;
+        // a perfuracao da FICHA soma com a das cartas
+        int pierce = w.perfuracaoBase + (inv != null ? inv.Pierce(w) : 0);
         int ricochet = inv != null ? inv.Ricochet(w) : 0;
 
         // GATILHO DUPLO: chance de um projetil a mais neste disparo
@@ -279,7 +336,7 @@ public class WeaponController : MonoBehaviour
                 if (jaAtingidos.Contains(health)) continue;
                 jaAtingidos.Add(health);
 
-                ProcessarAcerto(hit, dir, w, danoMult, hb, health);
+                ProcessarAcerto(hit, dir, w, danoMult, hb, health, Vector3.Distance(tracerStart, hit.point));
 
                 if (raioExplosao > 0f) Explodir(hit.point, w, danoMult, raioExplosao, jaAtingidos);
                 if (fogoDps > 0f) BurnStatus.Aplicar(health, fogoDps, inv.FireDuration(w), false);
@@ -312,7 +369,7 @@ public class WeaponController : MonoBehaviour
     }
 
     /// <summary>Dano + feridas + sangue + ragdoll num acerto. Igual pro tiro normal e perfurado.</summary>
-    private void ProcessarAcerto(RaycastHit hit, Vector3 dir, WeaponData w, float danoMult, Hitbox hb, Health health)
+    private void ProcessarAcerto(RaycastHit hit, Vector3 dir, WeaponData w, float danoMult, Hitbox hb, Health health, float distancia)
     {
         ZombieWounds wounds = hit.collider.GetComponentInParent<ZombieWounds>();
         if (wounds != null)
@@ -351,7 +408,10 @@ public class WeaponController : MonoBehaviour
             // upgrade de headshot amplifica so o BONUS da parte, nao o dano base
             if (multParte > 1f && inv != null)
                 multParte = 1f + (multParte - 1f) * inv.HeadshotMult(w);
-            int dmg = Mathf.Max(1, Mathf.RoundToInt(w.damage * danoMult * multParte));
+            // QUEDA POR DISTANCIA. E o que faz a escopeta ser uma arma de perto
+            // sem ser "pior": de longe ela entrega pouco, de perto entrega tudo.
+            float queda = w.MultQueda(distancia);
+            int dmg = Mathf.Max(1, Mathf.RoundToInt(w.damage * danoMult * multParte * queda));
             health.TakeDamage(dmg, dir);
             DanoPopup.Mostrar(hit.point, dmg,
                 multParte > 1f ? DanoPopup.Tipo.Critico : DanoPopup.Tipo.Normal, health.transform);

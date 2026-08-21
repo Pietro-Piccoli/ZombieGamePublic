@@ -95,6 +95,18 @@ public class PreviewArma : MonoBehaviour
         Remontar();
     }
 
+    /// <summary>Arma mostrada no palco agora.</summary>
+    public WeaponData Arma { get { return arma; } }
+
+    /// <summary>Troca a arma do palco (o jogador clicou noutra na armaria).</summary>
+    public void TrocarArma(WeaponData nova)
+    {
+        if (nova == arma) return;
+        arma = nova;
+        temSobreposicao = false; anexoSobre = null;
+        Remontar();
+    }
+
     /// <summary>Refaz o modelo com o que estiver equipado agora.</summary>
     public void Remontar()
     {
@@ -109,13 +121,16 @@ public class PreviewArma : MonoBehaviour
         foreach (var c in modelo.GetComponentsInChildren<Collider>(true)) DestroyImmediate(c);
 
         // instala os anexos equipados, com o MESMO encaixe que o jogo usa
+        string idArma = arma.Id;
         for (int s = 0; s < 6; s++)
         {
-            AnexoArma a = MetaProgressao.ResolverEquipado((SlotAttach)s);
-            if (temSobreposicao && (SlotAttach)s == slotSobre) a = anexoSobre;   // o que ele esta olhando
-            if (a == null || a.prefab == null) continue;
+            SlotAttach slot = (SlotAttach)s;
+            if (!arma.AceitaSlot(slot)) continue;
+            AnexoArma a = MetaProgressao.ResolverEquipado(idArma, slot);
+            if (temSobreposicao && slot == slotSobre) a = anexoSobre;   // o que ele esta olhando
+            if (a == null || a.prefab == null || !a.ServePara(idArma)) continue;
             var peca = Instantiate(a.prefab, modelo.transform);
-            peca.transform.localPosition = a.PosicaoFinal;
+            peca.transform.localPosition = a.PosicaoNa(arma);
             peca.transform.localEulerAngles = a.RotacaoFinal;
             peca.transform.localScale = Vector3.one * a.EscalaFinal;
             foreach (var c in peca.GetComponentsInChildren<Collider>(true)) DestroyImmediate(c);

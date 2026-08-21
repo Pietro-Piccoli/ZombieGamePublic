@@ -72,11 +72,19 @@ public class MontagemArma : MonoBehaviour
         //  agora e comecar limpo e montar peca por peca)
         multEspalhamento = 1f; multCadencia = 1f; multDano = 1f; multRecuo = 1f;
 
+        // A montagem e POR ARMA: cada arma guarda a propria configuracao, e
+        // uma peca so entra se ela serve nessa arma e se a arma tem o slot.
+        WeaponData arma = visuais.CurrentData;
+        string idArma = arma != null ? arma.Id : "";
+
         for (int s = 0; s < 6; s++)
         {
-            AnexoArma a = MetaProgressao.ResolverEquipado((SlotAttach)s);
+            SlotAttach slot = (SlotAttach)s;
+            if (arma != null && !arma.AceitaSlot(slot)) continue;
+            AnexoArma a = MetaProgressao.ResolverEquipado(idArma, slot);
             if (a == null || a.prefab == null) continue;
-            Instalar(a.prefab, a.slot, a.PosicaoFinal, a.RotacaoFinal, a.EscalaFinal, modelo);
+            if (!a.ServePara(idArma)) continue;
+            Instalar(a.prefab, a.slot, a.PosicaoNa(arma), a.RotacaoFinal, a.EscalaFinal, modelo);
             multEspalhamento *= a.multEspalhamento;
             multCadencia     *= a.multCadencia;
             multDano         *= a.multDano;
